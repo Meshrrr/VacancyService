@@ -8,129 +8,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "@/lib/auth-context"
+import { useDataStore } from "@/lib/data-store"
 import Link from "next/link"
-
-interface Job {
-  id: string
-  title: string
-  department: string
-  type: "part-time" | "internship" | "research"
-  location: string
-  duration: string
-  salary: string
-  description: string
-  requirements: string[]
-  responsibilities: string[]
-  benefits: string[]
-  posted: string
-  deadline: string
-  applicants: number
-  contact: {
-    name: string
-    email: string
-    phone: string
-  }
-}
-
-const mockJob: Job = {
-  id: "1",
-  title: "Ассистент преподавателя по математике",
-  department: "Математический факультет",
-  type: "part-time",
-  location: "Главный корпус, ауд. 205",
-  duration: "Семестр",
-  salary: "15 000 ₽/месяц",
-  description:
-    "Мы ищем мотивированного студента для работы ассистентом преподавателя на кафедре высшей математики. Это отличная возможность получить педагогический опыт, углубить знания в математике и помочь младшим курсам в освоении сложного материала.",
-  requirements: [
-    "Студент 3-4 курса математического или физического факультета",
-    "Средний балл не ниже 4.5",
-    "Отличное знание высшей математики",
-    "Опыт объяснения материала (репетиторство приветствуется)",
-    "Коммуникативные навыки",
-    "Ответственность и пунктуальность",
-  ],
-  responsibilities: [
-    "Проведение семинарских занятий для студентов 1-2 курсов",
-    "Проверка домашних заданий и контрольных работ",
-    "Консультации студентов по сложным темам",
-    "Помощь в подготовке учебных материалов",
-    "Участие в организации экзаменов",
-    "Ведение учета успеваемости студентов",
-  ],
-  benefits: [
-    "Гибкий график работы",
-    "Возможность совмещения с учебой",
-    "Педагогический опыт для резюме",
-    "Рекомендательные письма от преподавателей",
-    "Возможность продления контракта",
-    "Доступ к дополнительным образовательным ресурсам",
-  ],
-  posted: "2024-01-15",
-  deadline: "2024-02-01",
-  applicants: 12,
-  contact: {
-    name: "Профессор Иванова Елена Петровна",
-    email: "e.ivanova@university.edu",
-    phone: "+7 (495) 123-45-67",
-  },
-}
 
 export default function JobDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const [job, setJob] = useState<Job | null>(null)
+  const { user, isAuthenticated } = useAuth()
+  const { getInternshipById, applications } = useDataStore()
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  const internship = getInternshipById(params.id as string)
+
+  // Проверяем, подавал ли текущий пользователь заявку
+  const userApplication = applications.find((app) => app.jobId === params.id && app.applicantEmail === user?.email)
 
   useEffect(() => {
-    // Имитация загрузки данных
-    const loadJob = async () => {
-      try {
-        setIsLoading(true)
-        // Имитация API запроса
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        if (params.id === "1") {
-          setJob(mockJob)
-        } else {
-          setError("Вакансия не найдена")
-        }
-      } catch (err) {
-        setError("Ошибка загрузки данных")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadJob()
-  }, [params.id])
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case "part-time":
-        return "Подработка"
-      case "internship":
-        return "Стажировка"
-      case "research":
-        return "Исследования"
-      default:
-        return type
-    }
-  }
-
-  const getTypeBadgeVariant = (type: string) => {
-    switch (type) {
-      case "part-time":
-        return "secondary"
-      case "internship":
-        return "default"
-      case "research":
-        return "outline"
-      default:
-        return "secondary"
-    }
-  }
+    setIsLoading(false)
+  }, [])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("ru-RU", {
@@ -146,6 +42,19 @@ export default function JobDetailPage() {
     const diffTime = deadlineDate.getTime() - today.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays <= 7 && diffDays > 0
+  }
+
+  const getCampusLabel = (campus: string) => {
+    switch (campus) {
+      case "IRIT-RTF":
+        return "ИРИТ-РТФ"
+      case "Novokoltcovsky":
+        return "Новокольцовский кампус"
+      case "GUK":
+        return "ГУК"
+      default:
+        return campus
+    }
   }
 
   if (isLoading) {
@@ -167,7 +76,7 @@ export default function JobDetailPage() {
     )
   }
 
-  if (error || !job) {
+  if (!internship) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
@@ -178,7 +87,7 @@ export default function JobDetailPage() {
 
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error || "Вакансия не найдена"}</AlertDescription>
+            <AlertDescription>Стажировка не найдена</AlertDescription>
           </Alert>
         </div>
       </div>
@@ -193,19 +102,31 @@ export default function JobDetailPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Building2 className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">UniJobs</h1>
+              <h1 className="text-2xl font-bold text-gray-900">URFU Intern</h1>
             </div>
             <nav className="hidden md:flex items-center space-x-6">
               <Link href="/" className="text-gray-700 hover:text-blue-600">
-                Вакансии
+                Стажировки
               </Link>
-              <Link href="/profile" className="text-gray-700 hover:text-blue-600">
-                Мой профиль
-              </Link>
-              <Link href="/applications" className="text-gray-700 hover:text-blue-600">
-                Мои заявки
-              </Link>
-              <Button>Войти</Button>
+              {isAuthenticated && (
+                <>
+                  <Link href="/profile" className="text-gray-700 hover:text-blue-600">
+                    Мой профиль
+                  </Link>
+                  <Link href="/applications" className="text-gray-700 hover:text-blue-600">
+                    Мои заявки
+                  </Link>
+                </>
+              )}
+              {isAuthenticated ? (
+                <Link href="/logout">
+                  <Button variant="outline">Выйти</Button>
+                </Link>
+              ) : (
+                <Link href="/login">
+                  <Button>Войти</Button>
+                </Link>
+              )}
             </nav>
           </div>
         </div>
@@ -214,7 +135,7 @@ export default function JobDetailPage() {
       <div className="container mx-auto px-4 py-8">
         <Button variant="ghost" onClick={() => router.back()} className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Назад к вакансиям
+          Назад к стажировкам
         </Button>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -224,30 +145,30 @@ export default function JobDetailPage() {
               <CardHeader>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <CardTitle className="text-2xl mb-2">{job.title}</CardTitle>
-                    <CardDescription className="text-lg">{job.department}</CardDescription>
+                    <CardTitle className="text-2xl mb-2">{internship.title}</CardTitle>
+                    <CardDescription className="text-lg">{internship.department}</CardDescription>
                   </div>
-                  <Badge variant={getTypeBadgeVariant(job.type) as any} className="text-sm">
-                    {getTypeLabel(job.type)}
+                  <Badge variant="outline" className="text-sm">
+                    {getCampusLabel(internship.campus || "GUK")}
                   </Badge>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 mr-2" />
-                    {job.location}
+                    {internship.location}
                   </div>
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-2" />
-                    {job.duration}
+                    {internship.duration}
                   </div>
                   <div className="flex items-center">
                     <DollarSign className="h-4 w-4 mr-2" />
-                    {job.salary}
+                    {internship.salary}
                   </div>
                   <div className="flex items-center">
                     <Users className="h-4 w-4 mr-2" />
-                    {job.applicants} заявок
+                    {internship.applicants} заявок
                   </div>
                 </div>
               </CardHeader>
@@ -255,7 +176,7 @@ export default function JobDetailPage() {
               <CardContent className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Описание</h3>
-                  <p className="text-gray-700 leading-relaxed">{job.description}</p>
+                  <p className="text-gray-700 leading-relaxed">{internship.description}</p>
                 </div>
 
                 <Separator />
@@ -263,7 +184,7 @@ export default function JobDetailPage() {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Требования</h3>
                   <ul className="space-y-2">
-                    {job.requirements.map((req, index) => (
+                    {internship.requirements.map((req, index) => (
                       <li key={index} className="flex items-start">
                         <CheckCircle className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
                         <span className="text-gray-700">{req}</span>
@@ -277,7 +198,7 @@ export default function JobDetailPage() {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Обязанности</h3>
                   <ul className="space-y-2">
-                    {job.responsibilities.map((resp, index) => (
+                    {internship.responsibilities.map((resp, index) => (
                       <li key={index} className="flex items-start">
                         <div className="h-2 w-2 bg-blue-500 rounded-full mr-3 mt-2 flex-shrink-0"></div>
                         <span className="text-gray-700">{resp}</span>
@@ -286,19 +207,22 @@ export default function JobDetailPage() {
                   </ul>
                 </div>
 
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Что мы предлагаем</h3>
-                  <ul className="space-y-2">
-                    {job.benefits.map((benefit, index) => (
-                      <li key={index} className="flex items-start">
-                        <CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <span className="text-gray-700">{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {internship.benefits.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">Что мы предлагаем</h3>
+                      <ul className="space-y-2">
+                        {internship.benefits.map((benefit, index) => (
+                          <li key={index} className="flex items-start">
+                            <CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                            <span className="text-gray-700">{benefit}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -308,44 +232,97 @@ export default function JobDetailPage() {
             {/* Application Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Подать заявку</CardTitle>
+                <CardTitle>{userApplication ? "Ваша заявка" : "Подать заявку"}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {isDeadlineSoon(job.deadline) && (
+                {isDeadlineSoon(internship.deadline) && !userApplication && (
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>Срок подачи заявок истекает через несколько дней!</AlertDescription>
                   </Alert>
                 )}
 
+                {userApplication && (
+                  <Alert
+                    className={
+                      userApplication.status === "accepted"
+                        ? "border-green-200 bg-green-50"
+                        : userApplication.status === "rejected"
+                          ? "border-red-200 bg-red-50"
+                          : "border-blue-200 bg-blue-50"
+                    }
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Статус заявки:</strong>{" "}
+                      {userApplication.status === "pending"
+                        ? "На рассмотрении"
+                        : userApplication.status === "reviewed"
+                          ? "Рассмотрена"
+                          : userApplication.status === "accepted"
+                            ? "Принята"
+                            : userApplication.status === "rejected"
+                              ? "Отклонена"
+                              : userApplication.status}
+                      <br />
+                      <strong>Подана:</strong> {formatDate(userApplication.appliedDate)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Опубликовано:</span>
-                    <span>{formatDate(job.posted)}</span>
+                    <span>{formatDate(internship.posted)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Дедлайн:</span>
-                    <span className={isDeadlineSoon(job.deadline) ? "text-red-600 font-medium" : ""}>
-                      {formatDate(job.deadline)}
+                    <span className={isDeadlineSoon(internship.deadline) ? "text-red-600 font-medium" : ""}>
+                      {formatDate(internship.deadline)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Заявок:</span>
-                    <span>{job.applicants}</span>
+                    <span>{internship.applicants}</span>
                   </div>
                 </div>
 
                 <Separator />
 
-                <Link href={`/jobs/${job.id}/apply`}>
-                  <Button className="w-full" size="lg">
-                    Подать заявку
-                  </Button>
-                </Link>
-
-                <Button variant="outline" className="w-full">
-                  Сохранить в избранное
-                </Button>
+                {!isAuthenticated ? (
+                  <div className="space-y-2">
+                    <Link href="/login">
+                      <Button className="w-full" size="lg">
+                        Войти для подачи заявки
+                      </Button>
+                    </Link>
+                    <Link href="/register">
+                      <Button variant="outline" className="w-full">
+                        Зарегистрироваться
+                      </Button>
+                    </Link>
+                  </div>
+                ) : userApplication ? (
+                  <div className="space-y-2">
+                    <Link href="/applications">
+                      <Button className="w-full" size="lg">
+                        Посмотреть мои заявки
+                      </Button>
+                    </Link>
+                    {userApplication.feedback && (
+                      <div className="p-3 bg-gray-50 rounded text-sm">
+                        <strong>Обратная связь:</strong>
+                        <p className="mt-1">{userApplication.feedback}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Link href={`/jobs/${internship.id}/apply`}>
+                    <Button className="w-full" size="lg">
+                      Подать заявку
+                    </Button>
+                  </Link>
+                )}
               </CardContent>
             </Card>
 
@@ -356,47 +333,23 @@ export default function JobDetailPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <p className="font-medium">{job.contact.name}</p>
+                  <p className="font-medium">{internship.contact.name}</p>
                   <p className="text-sm text-gray-600">Контактное лицо</p>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-gray-600">Email: </span>
-                    <a href={`mailto:${job.contact.email}`} className="text-blue-600 hover:underline">
-                      {job.contact.email}
+                    <a href={`mailto:${internship.contact.email}`} className="text-blue-600 hover:underline">
+                      {internship.contact.email}
                     </a>
                   </div>
                   <div>
                     <span className="text-gray-600">Телефон: </span>
-                    <a href={`tel:${job.contact.phone}`} className="text-blue-600 hover:underline">
-                      {job.contact.phone}
+                    <a href={`tel:${internship.contact.phone}`} className="text-blue-600 hover:underline">
+                      {internship.contact.phone}
                     </a>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Similar Jobs */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Похожие вакансии</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="border-l-4 border-blue-500 pl-3">
-                    <h4 className="font-medium text-sm">Стажер в IT-отделе</h4>
-                    <p className="text-xs text-gray-600">Управление информационных технологий</p>
-                    <p className="text-xs text-green-600 font-medium">20 000 ₽/месяц</p>
-                  </div>
-                  <div className="border-l-4 border-purple-500 pl-3">
-                    <h4 className="font-medium text-sm">Исследователь в лаборатории</h4>
-                    <p className="text-xs text-gray-600">Физический факультет</p>
-                    <p className="text-xs text-green-600 font-medium">25 000 ₽/месяц</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="w-full">
-                  Смотреть все
-                </Button>
               </CardContent>
             </Card>
           </div>

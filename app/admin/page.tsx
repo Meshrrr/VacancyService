@@ -2,98 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Building2, Plus, FileText, TrendingUp, Eye, CheckCircle, XCircle, Clock, Search } from "lucide-react"
+import { Building2, Plus, FileText, Eye, CheckCircle, XCircle, Clock, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
+import { useDataStore } from "@/lib/data-store"
 import Link from "next/link"
-
-interface InternshipStats {
-  total: number
-  active: number
-  draft: number
-  expired: number
-}
-
-interface ApplicationStats {
-  total: number
-  pending: number
-  reviewed: number
-  accepted: number
-  rejected: number
-}
-
-interface RecentApplication {
-  id: string
-  studentName: string
-  studentEmail: string
-  internshipTitle: string
-  appliedDate: string
-  status: "pending" | "reviewed" | "accepted" | "rejected"
-  gpa: string
-}
-
-const mockInternshipStats: InternshipStats = {
-  total: 12,
-  active: 8,
-  draft: 2,
-  expired: 2,
-}
-
-const mockApplicationStats: ApplicationStats = {
-  total: 67,
-  pending: 23,
-  reviewed: 15,
-  accepted: 18,
-  rejected: 11,
-}
-
-const mockRecentApplications: RecentApplication[] = [
-  {
-    id: "app1",
-    studentName: "Иван Петров",
-    studentEmail: "ivan.petrov@university.edu",
-    internshipTitle: "Стажер-разработчик в лаборатории ИИ",
-    appliedDate: "2024-01-25",
-    status: "pending",
-    gpa: "4.5",
-  },
-  {
-    id: "app2",
-    studentName: "Мария Сидорова",
-    studentEmail: "maria.sidorova@university.edu",
-    internshipTitle: "Стажер в IT-отделе",
-    appliedDate: "2024-01-24",
-    status: "pending",
-    gpa: "4.8",
-  },
-  {
-    id: "app3",
-    studentName: "Алексей Козлов",
-    studentEmail: "alexey.kozlov@university.edu",
-    internshipTitle: "Стажер-исследователь в лаборатории материалов",
-    appliedDate: "2024-01-23",
-    status: "reviewed",
-    gpa: "4.2",
-  },
-  {
-    id: "app4",
-    studentName: "Елена Новикова",
-    studentEmail: "elena.novikova@university.edu",
-    internshipTitle: "Стажер в отделе маркетинга",
-    appliedDate: "2024-01-22",
-    status: "pending",
-    gpa: "4.6",
-  },
-]
 
 export default function AdminDashboard() {
   const router = useRouter()
   const { user, isAdmin, isLoading } = useAuth()
+  const { internships, applications, activities, updateApplicationStatus } = useDataStore()
   const [searchTerm, setSearchTerm] = useState("")
-  const [applications, setApplications] = useState<RecentApplication[]>(mockRecentApplications)
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
@@ -101,12 +23,21 @@ export default function AdminDashboard() {
     }
   }, [isAdmin, isLoading, router])
 
+  // Фильтруем заявки - показываем только pending в "Последние заявки"
+  const pendingApplications = applications.filter((app) => app.status === "pending")
+
+  const filteredApplications = pendingApplications.filter(
+    (app) =>
+      app.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
   const handleApplicationAction = async (applicationId: string, action: "accept" | "reject") => {
-    setApplications((prev) =>
-      prev.map((app) =>
-        app.id === applicationId ? { ...app, status: action === "accept" ? "accepted" : "rejected" } : app,
-      ),
-    )
+    const feedback =
+      action === "accept" ? "Поздравляем! Ваша заявка одобрена." : "К сожалению, мы выбрали другого кандидата."
+
+    updateApplicationStatus(applicationId, action === "accept" ? "accepted" : "rejected", feedback)
   }
 
   const getStatusLabel = (status: string) => {
@@ -154,12 +85,21 @@ export default function AdminDashboard() {
     }
   }
 
-  const filteredApplications = applications.filter(
-    (app) =>
-      app.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.internshipTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // Вычисляем актуальную статистику
+  const internshipStats = {
+    total: internships.length,
+    active: internships.filter((i) => i.status === "active").length,
+    draft: internships.filter((i) => i.status === "draft").length,
+    expired: internships.filter((i) => i.status === "expired").length,
+  }
+
+  const applicationStats = {
+    total: applications.length,
+    pending: applications.filter((a) => a.status === "pending").length,
+    reviewed: applications.filter((a) => a.status === "reviewed").length,
+    accepted: applications.filter((a) => a.status === "accepted").length,
+    rejected: applications.filter((a) => a.status === "rejected").length,
+  }
 
   if (isLoading) {
     return (
@@ -181,7 +121,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Building2 className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">UniInternships</h1>
+              <h1 className="text-2xl font-bold text-gray-900">URFU Intern</h1>
               <Badge variant="outline" className="bg-blue-50 text-blue-700">
                 Админ-панель
               </Badge>
@@ -211,7 +151,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
           <Link href="/admin/internships/create">
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
@@ -241,16 +181,6 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </Link>
-
-          <Link href="/admin/analytics">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardContent className="p-6 text-center">
-                <TrendingUp className="h-8 w-8 text-orange-600 mx-auto mb-2" />
-                <h3 className="font-semibold">Аналитика</h3>
-                <p className="text-sm text-gray-600">Статистика и отчеты</p>
-              </CardContent>
-            </Card>
-          </Link>
         </div>
 
         {/* Statistics */}
@@ -264,19 +194,19 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{mockInternshipStats.total}</div>
+                  <div className="text-2xl font-bold text-blue-600">{internshipStats.total}</div>
                   <div className="text-sm text-gray-600">Всего</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{mockInternshipStats.active}</div>
+                  <div className="text-2xl font-bold text-green-600">{internshipStats.active}</div>
                   <div className="text-sm text-gray-600">Активные</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">{mockInternshipStats.draft}</div>
+                  <div className="text-2xl font-bold text-yellow-600">{internshipStats.draft}</div>
                   <div className="text-sm text-gray-600">Черновики</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">{mockInternshipStats.expired}</div>
+                  <div className="text-2xl font-bold text-red-600">{internshipStats.expired}</div>
                   <div className="text-sm text-gray-600">Истекшие</div>
                 </div>
               </div>
@@ -292,23 +222,23 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{mockApplicationStats.total}</div>
+                  <div className="text-2xl font-bold text-gray-900">{applicationStats.total}</div>
                   <div className="text-sm text-gray-600">Всего</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">{mockApplicationStats.pending}</div>
+                  <div className="text-2xl font-bold text-yellow-600">{applicationStats.pending}</div>
                   <div className="text-sm text-gray-600">Ожидают</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{mockApplicationStats.reviewed}</div>
+                  <div className="text-2xl font-bold text-blue-600">{applicationStats.reviewed}</div>
                   <div className="text-sm text-gray-600">Рассмотрены</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{mockApplicationStats.accepted}</div>
+                  <div className="text-2xl font-bold text-green-600">{applicationStats.accepted}</div>
                   <div className="text-sm text-gray-600">Приняты</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">{mockApplicationStats.rejected}</div>
+                  <div className="text-2xl font-bold text-red-600">{applicationStats.rejected}</div>
                   <div className="text-sm text-gray-600">Отклонены</div>
                 </div>
               </div>
@@ -353,9 +283,9 @@ export default function AdminDashboard() {
                           <h4 className="font-medium">{application.studentName}</h4>
                           <p className="text-sm text-gray-600">{application.studentEmail}</p>
                         </div>
-                        <Badge className="bg-blue-100 text-blue-800">GPA: {application.gpa}</Badge>
+                        <Badge className="bg-blue-100 text-blue-800">{application.course}</Badge>
                       </div>
-                      <p className="text-sm text-gray-700 mt-1">{application.internshipTitle}</p>
+                      <p className="text-sm text-gray-700 mt-1">{application.jobTitle}</p>
                       <p className="text-xs text-gray-500">
                         Подана: {new Date(application.appliedDate).toLocaleDateString("ru-RU")}
                       </p>
@@ -403,7 +333,9 @@ export default function AdminDashboard() {
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-600 mb-2">Заявки не найдены</h3>
-                  <p className="text-gray-500">Попробуйте изменить параметры поиска</p>
+                  <p className="text-gray-500">
+                    {searchTerm ? "Попробуйте изменить параметры поиска" : "Нет новых заявок для рассмотрения"}
+                  </p>
                 </div>
               )}
             </div>
@@ -418,34 +350,34 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-gray-600">15:30</span>
-                <span>
-                  Новая заявка от <strong>Иван Петров</strong> на стажировку "Стажер-разработчик в лаборатории ИИ"
-                </span>
-              </div>
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-gray-600">14:45</span>
-                <span>
-                  Создана новая стажировка <strong>"Стажер в отделе аналитики"</strong>
-                </span>
-              </div>
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-gray-600">13:20</span>
-                <span>
-                  Заявка от <strong>Мария Сидорова</strong> рассмотрена
-                </span>
-              </div>
-              <div className="flex items-center space-x-3 text-sm">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                <span className="text-gray-600">12:10</span>
-                <span>
-                  Стажировка <strong>"Помощник в библиотеке"</strong> завершена
-                </span>
-              </div>
+              {activities.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">Пока нет активности</p>
+              ) : (
+                activities.slice(0, 5).map((activity) => (
+                  <div key={activity.id} className="flex items-center space-x-3 text-sm">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        activity.type === "application_submitted"
+                          ? "bg-blue-500"
+                          : activity.type === "application_accepted"
+                            ? "bg-green-500"
+                            : activity.type === "application_rejected"
+                              ? "bg-red-500"
+                              : activity.type === "internship_created"
+                                ? "bg-purple-500"
+                                : "bg-gray-500"
+                      }`}
+                    ></div>
+                    <span className="text-gray-600">
+                      {new Date(activity.timestamp).toLocaleTimeString("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span>{activity.description}</span>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

@@ -3,13 +3,13 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
-import { Toaster } from "@/components/ui/toaster"
+import { DataStoreProvider } from "@/lib/data-store"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "UniInternships - Стажировки в университете",
-  description: "Платформа для поиска стажировок в университете",
+  title: "URFU Intern - Платформа стажировок УрФУ",
+  description: "Найдите идеальную стажировку в Уральском федеральном университете",
     generator: 'v0.dev'
 }
 
@@ -22,8 +22,7 @@ export default function RootLayout({
     <html lang="ru">
       <body className={inter.className}>
         <AuthProvider>
-          {children}
-          <Toaster />
+          <DataStoreProvider>{children}</DataStoreProvider>
         </AuthProvider>
       </body>
     </html>

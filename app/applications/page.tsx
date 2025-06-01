@@ -17,78 +17,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "@/lib/auth-context"
+import { useDataStore } from "@/lib/data-store"
 import Link from "next/link"
 
-interface Application {
-  id: string
-  jobId: string
-  jobTitle: string
-  department: string
-  appliedDate: string
-  status: "pending" | "reviewed" | "interview" | "accepted" | "rejected"
-  lastUpdate: string
-  interviewDate?: string
-  feedback?: string
-  nextSteps?: string
-}
-
-const mockApplications: Application[] = [
-  {
-    id: "app1",
-    jobId: "1",
-    jobTitle: "Ассистент преподавателя по математике",
-    department: "Математический факультет",
-    appliedDate: "2024-01-20",
-    status: "interview",
-    lastUpdate: "2024-01-25",
-    interviewDate: "2024-02-01",
-    nextSteps: "Собеседование назначено на 1 февраля в 14:00, аудитория 205",
-  },
-  {
-    id: "app2",
-    jobId: "2",
-    jobTitle: "Стажер в IT-отделе",
-    department: "Управление информационных технологий",
-    appliedDate: "2024-01-18",
-    status: "reviewed",
-    lastUpdate: "2024-01-24",
-    feedback: "Ваше резюме рассмотрено. Ожидайте дальнейших инструкций.",
-  },
-  {
-    id: "app3",
-    jobId: "3",
-    jobTitle: "Исследователь в лаборатории физики",
-    department: "Физический факультет",
-    appliedDate: "2024-01-15",
-    status: "accepted",
-    lastUpdate: "2024-01-22",
-    feedback: "Поздравляем! Ваша заявка одобрена. Начало работы 5 февраля.",
-    nextSteps: "Свяжитесь с руководителем лаборатории для получения инструкций",
-  },
-  {
-    id: "app4",
-    jobId: "4",
-    jobTitle: "Помощник в библиотеке",
-    department: "Научная библиотека",
-    appliedDate: "2024-01-10",
-    status: "rejected",
-    lastUpdate: "2024-01-20",
-    feedback: "К сожалению, мы выбрали другого кандидата. Спасибо за интерес к позиции.",
-  },
-  {
-    id: "app5",
-    jobId: "5",
-    jobTitle: "Лаборант кафедры химии",
-    department: "Химический факультет",
-    appliedDate: "2024-01-22",
-    status: "pending",
-    lastUpdate: "2024-01-22",
-  },
-]
-
 export default function ApplicationsPage() {
-  const [applications] = useState<Application[]>(mockApplications)
+  const { user } = useAuth()
+  const { getApplicationsByUser } = useDataStore()
   const [activeTab, setActiveTab] = useState("all")
+
+  const applications = user ? getApplicationsByUser(user.email) : []
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -192,11 +130,11 @@ export default function ApplicationsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Building2 className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">UniJobs</h1>
+              <h1 className="text-2xl font-bold text-gray-900">URFU Intern</h1>
             </div>
             <nav className="hidden md:flex items-center space-x-6">
               <Link href="/" className="text-gray-700 hover:text-blue-600">
-                Вакансии
+                Стажировки
               </Link>
               <Link href="/profile" className="text-gray-700 hover:text-blue-600">
                 Мой профиль
@@ -204,7 +142,12 @@ export default function ApplicationsPage() {
               <Link href="/applications" className="text-blue-600 font-medium">
                 Мои заявки
               </Link>
-              <Button>Войти</Button>
+              <span className="text-gray-700">
+                {user?.firstName} {user?.lastName}
+              </span>
+              <Link href="/logout">
+                <Button variant="outline">Выйти</Button>
+              </Link>
             </nav>
           </div>
         </div>
@@ -279,7 +222,7 @@ export default function ApplicationsPage() {
                       : `Нет заявок со статусом "${getStatusLabel(activeTab)}"`}
                   </p>
                   <Link href="/">
-                    <Button>Найти вакансии</Button>
+                    <Button>Найти стажировки</Button>
                   </Link>
                 </CardContent>
               </Card>
@@ -356,7 +299,7 @@ export default function ApplicationsPage() {
                         <Link href={`/jobs/${application.jobId}`}>
                           <Button variant="outline" size="sm">
                             <Eye className="h-4 w-4 mr-2" />
-                            Посмотреть вакансию
+                            Посмотреть стажировку
                           </Button>
                         </Link>
 
@@ -389,11 +332,11 @@ export default function ApplicationsPage() {
             <CardDescription>Полезные ссылки для управления вашими заявками</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 gap-4">
               <Link href="/">
                 <Button variant="outline" className="w-full h-auto p-4 flex flex-col items-center space-y-2">
                   <Building2 className="h-6 w-6" />
-                  <span>Найти новые вакансии</span>
+                  <span>Найти новые стажировки</span>
                 </Button>
               </Link>
 
@@ -403,11 +346,6 @@ export default function ApplicationsPage() {
                   <span>Обновить профиль</span>
                 </Button>
               </Link>
-
-              <Button variant="outline" className="w-full h-auto p-4 flex flex-col items-center space-y-2">
-                <MessageSquare className="h-6 w-6" />
-                <span>Связаться с поддержкой</span>
-              </Button>
             </div>
           </CardContent>
         </Card>

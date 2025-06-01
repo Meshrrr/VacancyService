@@ -20,8 +20,7 @@ interface FormData {
   email: string
   password: string
   confirmPassword: string
-  course: string
-  gpa: string
+  role: string
 }
 
 interface FormErrors {
@@ -39,8 +38,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    course: "",
-    gpa: "",
+    role: "",
   })
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState("")
@@ -67,8 +65,6 @@ export default function RegisterPage() {
       newErrors.email = "Email обязателен для заполнения"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Некорректный формат email"
-    } else if (!formData.email.endsWith("@university.edu")) {
-      newErrors.email = "Используйте университетский email (@university.edu)"
     }
 
     // Проверка пароля
@@ -87,16 +83,9 @@ export default function RegisterPage() {
       newErrors.confirmPassword = "Пароли не совпадают"
     }
 
-    // Проверка курса
-    if (!formData.course) {
-      newErrors.course = "Выберите курс обучения"
-    }
-
-    // Проверка среднего балла
-    if (!formData.gpa) {
-      newErrors.gpa = "Средний балл обязателен для заполнения"
-    } else if (isNaN(Number(formData.gpa)) || Number(formData.gpa) < 2 || Number(formData.gpa) > 5) {
-      newErrors.gpa = "Средний балл должен быть числом от 2 до 5"
+    // Проверка роли
+    if (!formData.role) {
+      newErrors.role = "Выберите роль"
     }
 
     setErrors(newErrors)
@@ -116,8 +105,7 @@ export default function RegisterPage() {
       lastName: formData.lastName,
       email: formData.email,
       password: formData.password,
-      course: formData.course,
-      gpa: formData.gpa,
+      role: formData.role,
     })
 
     if (result.success) {
@@ -215,7 +203,7 @@ export default function RegisterPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="ivan.petrov@university.edu"
+                  placeholder="ivan.petrov@gmail.com"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   disabled={isLoading}
@@ -318,42 +306,19 @@ export default function RegisterPage() {
                 {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword}</p>}
               </div>
 
-              {/* Курс */}
+              {/* Роль */}
               <div className="space-y-2">
-                <Label htmlFor="course">Курс обучения *</Label>
-                <Select value={formData.course} onValueChange={(value) => handleInputChange("course", value)}>
-                  <SelectTrigger className={errors.course ? "border-red-500" : ""}>
-                    <SelectValue placeholder="Выберите курс" />
+                <Label htmlFor="role">Роль *</Label>
+                <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
+                  <SelectTrigger className={errors.role ? "border-red-500" : ""}>
+                    <SelectValue placeholder="Выберите роль" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1-bachelor">1 курс бакалавриата</SelectItem>
-                    <SelectItem value="2-bachelor">2 курс бакалавриата</SelectItem>
-                    <SelectItem value="3-bachelor">3 курс бакалавриата</SelectItem>
-                    <SelectItem value="4-bachelor">4 курс бакалавриата</SelectItem>
-                    <SelectItem value="1-master">1 курс магистратуры</SelectItem>
-                    <SelectItem value="2-master">2 курс магистратуры</SelectItem>
-                    <SelectItem value="phd">Аспирантура</SelectItem>
+                    <SelectItem value="student">Студент</SelectItem>
+                    <SelectItem value="teacher">Преподаватель</SelectItem>
                   </SelectContent>
                 </Select>
-                {errors.course && <p className="text-sm text-red-500">{errors.course}</p>}
-              </div>
-
-              {/* Средний балл */}
-              <div className="space-y-2">
-                <Label htmlFor="gpa">Средний балл *</Label>
-                <Input
-                  id="gpa"
-                  type="number"
-                  step="0.1"
-                  min="2"
-                  max="5"
-                  placeholder="4.5"
-                  value={formData.gpa}
-                  onChange={(e) => handleInputChange("gpa", e.target.value)}
-                  disabled={isLoading}
-                  className={errors.gpa ? "border-red-500" : ""}
-                />
-                {errors.gpa && <p className="text-sm text-red-500">{errors.gpa}</p>}
+                {errors.role && <p className="text-sm text-red-500">{errors.role}</p>}
               </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>

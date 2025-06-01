@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Upload, FileText, AlertCircle, CheckCircle } from "lucide-react"
+import { ArrowLeft, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Progress } from "@/components/ui/progress"
+import { useAuth } from "@/lib/auth-context"
+import { useDataStore } from "@/lib/data-store"
+import Link from "next/link"
 
 interface ApplicationForm {
   firstName: string
@@ -20,10 +22,7 @@ interface ApplicationForm {
   email: string
   phone: string
   course: string
-  gpa: string
   coverLetter: string
-  resume: File | null
-  portfolio: File | null
   agreeToTerms: boolean
   agreeToDataProcessing: boolean
 }
@@ -31,21 +30,24 @@ interface ApplicationForm {
 export default function JobApplicationPage() {
   const params = useParams()
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
+  const { getInternshipById, addApplication, applications } = useDataStore()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitProgress, setSubmitProgress] = useState(0)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const internship = getInternshipById(params.id as string)
+
+  // Проверяем, не подавал ли пользователь уже заявку
+  const existingApplication = applications.find((app) => app.jobId === params.id && app.applicantEmail === user?.email)
+
   const [form, setForm] = useState<ApplicationForm>({
-    firstName: "",
-    lastName: "",
-    email: "",
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+    email: user?.email || "",
     phone: "",
     course: "",
-    gpa: "",
     coverLetter: "",
-    resume: null,
-    portfolio: null,
     agreeToTerms: false,
     agreeToDataProcessing: false,
   })
@@ -69,28 +71,16 @@ export default function JobApplicationPage() {
 
     if (!form.phone.trim()) {
       newErrors.phone = "Телефон обязателен для заполнения"
-    } else if (!/^[+]?[1-9][\d]{0,15}$/.test(form.phone.replace(/[\s\-$$$$]/g, ""))) {
-      newErrors.phone = "Некорректный формат телефона"
     }
 
     if (!form.course.trim()) {
       newErrors.course = "Курс обязателен для заполнения"
     }
 
-    if (!form.gpa.trim()) {
-      newErrors.gpa = "Средний балл обязателен для заполнения"
-    } else if (isNaN(Number(form.gpa)) || Number(form.gpa) < 2 || Number(form.gpa) > 5) {
-      newErrors.gpa = "Средний балл должен быть числом от 2 до 5"
-    }
-
     if (!form.coverLetter.trim()) {
       newErrors.coverLetter = "Сопроводительное письмо обязательно"
-    } else if (form.coverLetter.length < 100) {
-      newErrors.coverLetter = "Сопроводительное письмо должно содержать минимум 100 символов"
-    }
-
-    if (!form.resume) {
-      newErrors.resume = "Резюме обязательно для загрузки"
+    } else if (form.coverLetter.length < 50) {
+      newErrors.coverLetter = "Сопроводительное письмо должно содержать минимум 50 символов"
     }
 
     if (!form.agreeToTerms) {
@@ -105,10 +95,9 @@ export default function JobApplicationPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleInputChange = (field: keyof ApplicationForm, value: string | boolean | File | null) => {
+  const handleInputChange = (field: keyof ApplicationForm, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }))
 
-    // Очищаем ошибку для поля при изменении
     if (errors[field]) {
       setErrors((prev) => {
         const newErrors = { ...prev }
@@ -118,46 +107,6 @@ export default function JobApplicationPage() {
     }
   }
 
-  const handleFileUpload = (field: "resume" | "portfolio", file: File | null) => {
-    if (file) {
-      // Проверяем размер файла (максимум 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors((prev) => ({ ...prev, [field]: "Размер файла не должен превышать 5MB" }))
-        return
-      }
-
-      // Проверяем тип файла
-      const allowedTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ]
-      if (!allowedTypes.includes(file.type)) {
-        setErrors((prev) => ({ ...prev, [field]: "Поддерживаются только файлы PDF, DOC, DOCX" }))
-        return
-      }
-    }
-
-    handleInputChange(field, file)
-  }
-
-  const simulateSubmission = async () => {
-    setIsSubmitting(true)
-    setSubmitProgress(0)
-
-    // Имитация загрузки файлов
-    for (let i = 0; i <= 100; i += 10) {
-      setSubmitProgress(i)
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    }
-
-    // Имитация отправки данных
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    setIsSubmitting(false)
-    setIsSubmitted(true)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -165,12 +114,93 @@ export default function JobApplicationPage() {
       return
     }
 
+    setIsSubmitting(true)
+
     try {
-      await simulateSubmission()
+      // Имитация отправки
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Добавляем заявку через DataStore
+      addApplication({
+        jobId: params.id as string,
+        jobTitle: internship?.title || "Стажировка",
+        department: internship?.department || "Отдел",
+        status: "pending",
+        applicantName: `${form.firstName} ${form.lastName}`,
+        applicantEmail: form.email,
+        coverLetter: form.coverLetter,
+      })
+
+      setIsSubmitted(true)
     } catch (error) {
       setErrors({ submit: "Произошла ошибка при отправке заявки. Попробуйте еще раз." })
+    } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Проверки доступа
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Необходима авторизация</CardTitle>
+            <CardDescription>Войдите в систему для подачи заявки</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Link href="/login">
+              <Button className="w-full">Войти</Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="outline" className="w-full">
+                Зарегистрироваться
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!internship) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Стажировка не найдена</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  if (existingApplication) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Заявка уже подана</CardTitle>
+            <CardDescription>Вы уже подали заявку на эту стажировку</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                Статус: {existingApplication.status === "pending" ? "На рассмотрении" : existingApplication.status}
+              </AlertDescription>
+            </Alert>
+            <Link href="/applications">
+              <Button className="w-full">Мои заявки</Button>
+            </Link>
+            <Link href={`/jobs/${params.id}`}>
+              <Button variant="outline" className="w-full">
+                К стажировке
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (isSubmitted) {
@@ -188,17 +218,20 @@ export default function JobApplicationPage() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Мы отправили подтверждение на ваш email. Ответ работодателя придет в течение 3-5 рабочих дней.
+                Ответ работодателя придет в течение 3-5 рабочих дней. Вы можете отслеживать статус в разделе "Мои
+                заявки".
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
-              <Button className="w-full" onClick={() => router.push("/applications")}>
-                Мои заявки
-              </Button>
-              <Button variant="outline" className="w-full" onClick={() => router.push("/")}>
-                К списку вакансий
-              </Button>
+              <Link href="/applications">
+                <Button className="w-full">Мои заявки</Button>
+              </Link>
+              <Link href="/">
+                <Button variant="outline" className="w-full">
+                  К списку стажировок
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -211,14 +244,16 @@ export default function JobApplicationPage() {
       <div className="container mx-auto px-4 py-8">
         <Button variant="ghost" onClick={() => router.back()} className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Назад к вакансии
+          Назад к стажировке
         </Button>
 
         <div className="max-w-2xl mx-auto">
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Подача заявки</CardTitle>
-              <CardDescription>Ассистент преподавателя по математике • Математический факультет</CardDescription>
+              <CardDescription>
+                {internship.title} • {internship.department}
+              </CardDescription>
             </CardHeader>
 
             <CardContent>
@@ -267,6 +302,7 @@ export default function JobApplicationPage() {
                         value={form.email}
                         onChange={(e) => handleInputChange("email", e.target.value)}
                         className={errors.email ? "border-red-500" : ""}
+                        disabled={!!user?.email}
                       />
                       {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
                     </div>
@@ -284,30 +320,16 @@ export default function JobApplicationPage() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="course">Курс обучения *</Label>
-                      <Input
-                        id="course"
-                        value={form.course}
-                        onChange={(e) => handleInputChange("course", e.target.value)}
-                        placeholder="3 курс бакалавриата"
-                        className={errors.course ? "border-red-500" : ""}
-                      />
-                      {errors.course && <p className="text-sm text-red-500 mt-1">{errors.course}</p>}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="gpa">Средний балл *</Label>
-                      <Input
-                        id="gpa"
-                        value={form.gpa}
-                        onChange={(e) => handleInputChange("gpa", e.target.value)}
-                        placeholder="4.5"
-                        className={errors.gpa ? "border-red-500" : ""}
-                      />
-                      {errors.gpa && <p className="text-sm text-red-500 mt-1">{errors.gpa}</p>}
-                    </div>
+                  <div>
+                    <Label htmlFor="course">Курс обучения *</Label>
+                    <Input
+                      id="course"
+                      value={form.course}
+                      onChange={(e) => handleInputChange("course", e.target.value)}
+                      placeholder="3 курс бакалавриата"
+                      className={errors.course ? "border-red-500" : ""}
+                    />
+                    {errors.course && <p className="text-sm text-red-500 mt-1">{errors.course}</p>}
                   </div>
                 </div>
 
@@ -328,57 +350,6 @@ export default function JobApplicationPage() {
                     <div className="flex justify-between items-center mt-1">
                       {errors.coverLetter && <p className="text-sm text-red-500">{errors.coverLetter}</p>}
                       <p className="text-sm text-gray-500 ml-auto">{form.coverLetter.length}/1000 символов</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Документы */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Документы</h3>
-
-                  <div>
-                    <Label htmlFor="resume">Резюме * (PDF, DOC, DOCX, до 5MB)</Label>
-                    <div className="mt-2">
-                      <input
-                        id="resume"
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => handleFileUpload("resume", e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById("resume")?.click()}
-                        className={`w-full ${errors.resume ? "border-red-500" : ""}`}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        {form.resume ? form.resume.name : "Выберите файл резюме"}
-                      </Button>
-                      {errors.resume && <p className="text-sm text-red-500 mt-1">{errors.resume}</p>}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="portfolio">Портфолио (опционально)</Label>
-                    <div className="mt-2">
-                      <input
-                        id="portfolio"
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => handleFileUpload("portfolio", e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById("portfolio")?.click()}
-                        className={`w-full ${errors.portfolio ? "border-red-500" : ""}`}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        {form.portfolio ? form.portfolio.name : "Выберите файл портфолио"}
-                      </Button>
-                      {errors.portfolio && <p className="text-sm text-red-500 mt-1">{errors.portfolio}</p>}
                     </div>
                   </div>
                 </div>
@@ -415,17 +386,6 @@ export default function JobApplicationPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Прогресс отправки */}
-                {isSubmitting && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Отправка заявки...</span>
-                      <span>{submitProgress}%</span>
-                    </div>
-                    <Progress value={submitProgress} />
-                  </div>
-                )}
 
                 {/* Кнопки */}
                 <div className="flex gap-4 pt-6">

@@ -9,97 +9,29 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
+import { useDataStore } from "@/lib/data-store"
 import Link from "next/link"
-
-interface Internship {
-  id: string
-  title: string
-  department: string
-  campus: "IRIT-RTF" | "Novokoltcovsky" | "GUK"
-  location: string
-  duration: string
-  salary: string
-  description: string
-  requirements: string[]
-  posted: string
-  deadline: string
-  applicants: number
-}
-
-const mockInternships: Internship[] = [
-  {
-    id: "1",
-    title: "Стажер-разработчик в лаборатории ИИ",
-    department: "Кафедра информационных систем",
-    campus: "IRIT-RTF",
-    location: "ИРИТ-РТФ, ауд. 405",
-    duration: "3 месяца",
-    salary: "25 000 ₽/месяц",
-    description: "Разработка алгоритмов машинного обучения для анализа данных, участие в исследовательских проектах.",
-    requirements: ["Python", "Машинное обучение", "Студент 3-4 курса"],
-    posted: "2024-01-15",
-    deadline: "2024-02-01",
-    applicants: 18,
-  },
-  {
-    id: "2",
-    title: "Стажер в IT-отделе",
-    department: "Управление информационных технологий",
-    campus: "GUK",
-    location: "ГУК, корпус А, каб. 301",
-    duration: "4 месяца",
-    salary: "20 000 ₽/месяц",
-    description: "Поддержка внутренних систем университета, разработка веб-приложений.",
-    requirements: ["JavaScript", "React", "Node.js", "Опыт веб-разработки"],
-    posted: "2024-01-10",
-    deadline: "2024-01-30",
-    applicants: 25,
-  },
-  {
-    id: "3",
-    title: "Стажер-исследователь в лаборатории материалов",
-    department: "Кафедра материаловедения",
-    campus: "Novokoltcovsky",
-    location: "Новокольцовский кампус, лаб. 201",
-    duration: "6 месяцев",
-    salary: "30 000 ₽/месяц",
-    description: "Исследование новых материалов, проведение экспериментов, анализ результатов.",
-    requirements: ["Химия/Физика", "Опыт лабораторной работы", "Аналитическое мышление"],
-    posted: "2024-01-12",
-    deadline: "2024-02-05",
-    applicants: 12,
-  },
-  {
-    id: "4",
-    title: "Стажер в отделе маркетинга",
-    department: "Управление по связям с общественностью",
-    campus: "GUK",
-    location: "ГУК, корпус Б, каб. 150",
-    duration: "3 месяца",
-    salary: "18 000 ₽/месяц",
-    description: "Создание контента для социальных сетей, организация мероприятий, работа с медиа.",
-    requirements: ["Маркетинг", "SMM", "Креативность", "Коммуникативные навыки"],
-    posted: "2024-01-08",
-    deadline: "2024-01-25",
-    applicants: 22,
-  },
-]
 
 export default function HomePage() {
   const { user, isAuthenticated, isAdmin } = useAuth()
-  const [internships, setInternships] = useState<Internship[]>(mockInternships)
+  const { internships } = useDataStore()
   const [searchTerm, setSearchTerm] = useState("")
   const [campusFilter, setCampusFilter] = useState<string>("all")
-  const [isLoading, setIsLoading] = useState(false)
 
   const filteredInternships = internships.filter((internship) => {
+    const searchLower = searchTerm.toLowerCase()
     const matchesSearch =
-      internship.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      internship.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      internship.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCampus = campusFilter === "all" || internship.campus === campusFilter
+      searchTerm === "" ||
+      internship.title.toLowerCase().includes(searchLower) ||
+      internship.department.toLowerCase().includes(searchLower) ||
+      internship.description.toLowerCase().includes(searchLower) ||
+      internship.requirements.some((req) => req.toLowerCase().includes(searchLower)) ||
+      internship.responsibilities.some((resp) => resp.toLowerCase().includes(searchLower))
 
-    return matchesSearch && matchesCampus
+    const matchesCampus = campusFilter === "all" || internship.campus === campusFilter
+    const isActive = internship.status === "active"
+
+    return matchesSearch && matchesCampus && isActive
   })
 
   const getCampusLabel = (campus: string) => {
@@ -136,6 +68,10 @@ export default function HomePage() {
     })
   }
 
+  const handleSearch = () => {
+    console.log(`Searching for: "${searchTerm}" in campus: "${campusFilter}"`)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -144,7 +80,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Building2 className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">UniInternships</h1>
+              <h1 className="text-2xl font-bold text-gray-900">URFU Intern</h1>
             </div>
             <nav className="flex items-center space-x-6">
               {isAuthenticated ? (
@@ -219,9 +155,9 @@ export default function HomePage() {
                   <SelectItem value="GUK">ГУК</SelectItem>
                 </SelectContent>
               </Select>
-              <Button className="h-12 px-8">
+              <Button className="h-12 px-8" onClick={handleSearch}>
                 <Filter className="h-5 w-5 mr-2" />
-                Найти
+                Найти ({filteredInternships.length})
               </Button>
             </div>
           </div>
@@ -231,7 +167,11 @@ export default function HomePage() {
       {/* Internships List */}
       <section className="container mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-8">
-          <h3 className="text-2xl font-bold text-gray-900">Доступные стажировки ({filteredInternships.length})</h3>
+          <h3 className="text-2xl font-bold text-gray-900">
+            {searchTerm || campusFilter !== "all"
+              ? `Результаты поиска (${filteredInternships.length})`
+              : `Доступные стажировки (${filteredInternships.length})`}
+          </h3>
           {isAdmin && (
             <Link href="/admin/internships/create">
               <Button>
@@ -242,88 +182,67 @@ export default function HomePage() {
           )}
         </div>
 
-        {isLoading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded"></div>
-                    <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {filteredInternships.map((internship) => (
+            <Card key={internship.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg mb-2 line-clamp-2">{internship.title}</CardTitle>
+                    <CardDescription className="text-sm">{internship.department}</CardDescription>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredInternships.map((internship) => (
-              <Card key={internship.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2 line-clamp-2">{internship.title}</CardTitle>
-                      <CardDescription className="text-sm">{internship.department}</CardDescription>
-                    </div>
-                    <Badge className={getCampusBadgeColor(internship.campus)}>
-                      {getCampusLabel(internship.campus)}
-                    </Badge>
+                  <Badge className={getCampusBadgeColor(internship.campus)}>{getCampusLabel(internship.campus)}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 line-clamp-2">{internship.description}</p>
+
+                  <div className="flex items-center text-sm text-gray-500">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    {internship.location}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <p className="text-sm text-gray-600 line-clamp-2">{internship.description}</p>
 
-                    <div className="flex items-center text-sm text-gray-500">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      {internship.location}
-                    </div>
-
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Clock className="h-4 w-4 mr-1" />
-                      {internship.duration}
-                    </div>
-
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Users className="h-4 w-4 mr-1" />
-                      {internship.applicants} заявок
-                    </div>
-
-                    <div className="flex flex-wrap gap-1">
-                      {internship.requirements.slice(0, 2).map((req, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {req}
-                        </Badge>
-                      ))}
-                      {internship.requirements.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{internship.requirements.length - 2}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-green-600">{internship.salary}</span>
-                      <Link href={`/internships/${internship.id}`}>
-                        <Button size="sm">Подробнее</Button>
-                      </Link>
-                    </div>
-
-                    <div className="text-xs text-gray-500">Дедлайн: {formatDate(internship.deadline)}</div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Clock className="h-4 w-4 mr-1" />
+                    {internship.duration}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
 
-        {filteredInternships.length === 0 && !isLoading && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Users className="h-4 w-4 mr-1" />
+                    {internship.applicants} заявок
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {internship.requirements.slice(0, 2).map((req, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {req}
+                      </Badge>
+                    ))}
+                    {internship.requirements.length > 2 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{internship.requirements.length - 2}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-green-600">{internship.salary}</span>
+                    <Link href={`/jobs/${internship.id}`}>
+                      <Button size="sm">Подробнее</Button>
+                    </Link>
+                  </div>
+
+                  <div className="text-xs text-gray-500">Дедлайн: {formatDate(internship.deadline)}</div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {filteredInternships.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               <Search className="h-16 w-16 mx-auto" />
@@ -392,9 +311,9 @@ export default function HomePage() {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <Building2 className="h-6 w-6" />
-                <span className="text-xl font-bold">UniInternships</span>
+                <span className="text-xl font-bold">URFU Intern</span>
               </div>
-              <p className="text-gray-400">Платформа для поиска стажировок в университете</p>
+              <p className="text-gray-400">Платформа для поиска стажировок в УрФУ</p>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Для студентов</h4>
@@ -413,17 +332,17 @@ export default function HomePage() {
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Поддержка</h4>
+              <h4 className="font-semibold mb-4">Контакты</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>Помощь</li>
-                <li>Контакты</li>
-                <li>FAQ</li>
+                <li>info@urfu.ru</li>
+                <li>+7 (343) 375-44-44</li>
+                <li>ул. Мира, 19</li>
               </ul>
             </div>
           </div>
           <Separator className="my-8 bg-gray-700" />
           <div className="text-center text-gray-400">
-            <p>&copy; 2024 UniInternships. Все права защищены.</p>
+            <p>&copy; 2024 URFU Intern. Все права защищены.</p>
           </div>
         </div>
       </footer>

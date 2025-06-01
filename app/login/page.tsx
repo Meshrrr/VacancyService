@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Building2, LogIn, AlertCircle } from "lucide-react"
@@ -27,15 +26,23 @@ export default function LoginPage() {
     e.preventDefault()
     setError("")
 
+    console.log("🚀 Отправка формы входа")
+
     if (!formData.email || !formData.password) {
       setError("Пожалуйста, заполните все поля")
       return
     }
 
+    console.log("📝 Данные формы:", formData)
+
     const result = await login(formData.email, formData.password)
+    console.log("📋 Результат входа:", result)
+
     if (result.success) {
+      console.log("✅ Вход успешен, перенаправляем...")
       router.push("/")
     } else {
+      console.log("❌ Ошибка входа:", result.error)
       setError(result.error || "Ошибка входа")
     }
   }

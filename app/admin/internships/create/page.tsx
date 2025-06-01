@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Building2, Save, Eye, AlertCircle, CheckCircle } from "lucide-react"
+import { ArrowLeft, Building2, Save, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
+import { useDataStore } from "@/lib/data-store"
 import Link from "next/link"
 
 interface InternshipForm {
@@ -36,7 +37,8 @@ interface InternshipForm {
 
 export default function CreateInternshipPage() {
   const router = useRouter()
-  const { isAdmin } = useAuth()
+  const { user, isAdmin } = useAuth()
+  const { addInternship } = useDataStore()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -59,7 +61,7 @@ export default function CreateInternshipPage() {
     contactName: "",
     contactEmail: "",
     contactPhone: "",
-    status: "draft",
+    status: "active",
   })
 
   const validateForm = (): boolean => {
@@ -183,8 +185,11 @@ export default function CreateInternshipPage() {
     setIsSubmitting(true)
 
     try {
-      // Имитация API запроса
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Добавляем стажировку через DataStore
+      addInternship({
+        ...form,
+        createdBy: user?.email || "admin",
+      })
 
       setIsSubmitted(true)
     } catch (error) {
@@ -239,8 +244,8 @@ export default function CreateInternshipPage() {
             </Alert>
 
             <div className="space-y-2">
-              <Button className="w-full" onClick={() => router.push("/admin/internships")}>
-                Управление стажировками
+              <Button className="w-full" onClick={() => router.push("/")}>
+                Посмотреть на главной
               </Button>
               <Button variant="outline" className="w-full" onClick={() => router.push("/admin")}>
                 Админ-панель
@@ -260,7 +265,7 @@ export default function CreateInternshipPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Building2 className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">UniInternships</h1>
+              <h1 className="text-2xl font-bold text-gray-900">URFU Intern</h1>
               <Badge variant="outline" className="bg-blue-50 text-blue-700">
                 Админ-панель
               </Badge>
@@ -583,7 +588,7 @@ export default function CreateInternshipPage() {
                         type="email"
                         value={form.contactEmail}
                         onChange={(e) => handleInputChange("contactEmail", e.target.value)}
-                        placeholder="e.ivanova@university.edu"
+                        placeholder="e.ivanova@urfu.ru"
                         className={errors.contactEmail ? "border-red-500" : ""}
                       />
                       {errors.contactEmail && <p className="text-sm text-red-500 mt-1">{errors.contactEmail}</p>}
@@ -595,7 +600,7 @@ export default function CreateInternshipPage() {
                         id="contactPhone"
                         value={form.contactPhone}
                         onChange={(e) => handleInputChange("contactPhone", e.target.value)}
-                        placeholder="+7 (495) 123-45-67"
+                        placeholder="+7 (343) 123-45-67"
                         className={errors.contactPhone ? "border-red-500" : ""}
                       />
                       {errors.contactPhone && <p className="text-sm text-red-500 mt-1">{errors.contactPhone}</p>}
@@ -634,10 +639,6 @@ export default function CreateInternshipPage() {
                     className="flex-1"
                   >
                     Отмена
-                  </Button>
-                  <Button type="button" variant="outline" disabled={isSubmitting} className="flex-1">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Предпросмотр
                   </Button>
                   <Button type="submit" disabled={isSubmitting} className="flex-1">
                     {isSubmitting ? (
